@@ -21,7 +21,7 @@ app.post("/webhook/get_expence", async (req, res) => {
     const customerNumber = req.body.customerNumber;
     const text_msg = req.body.text;
 
-    const manual_check = check_manual_message(text_msg, customerNumber);
+    const manual_check = await check_manual_message(text_msg, customerNumber);
     if (manual_check) {
       return;
     }

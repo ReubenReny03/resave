@@ -3,17 +3,22 @@ import { Dbconfig, Expense, User } from "./custom_variables.js";
 import { spending_categories } from "./custom_variables.js";
 import { WhatsappResponse } from "./whatappapi.js";
 import { ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA } from "./tool_schema.js";
-import { executeToolCall } from "./tools.js";
+import { executeToolCall, add_expense } from "./tools.js";
 import { get_customer_info } from "./mongo_db.js";
 import { AIclient, MODEL, ONE_HOUR } from "./variables.js";
 
-function check_manual_message(text_msg, customerNumber) {
-  const re = /spent \d+ on \w+/g;
+async function check_manual_message(text_msg, customerNumber) {
+  const re = /spent (\d+(?:\.\d+)?) on (\w+)/gi;
   const myArray = [...text_msg.matchAll(re)];
   if (myArray.length > 0) {
     for (let x in myArray) {
       let amount = myArray[x][1];
       let category = myArray[x][2];
+      const customer = await get_customer_info(customerNumber);
+      await add_expense(
+        { user_id: customer.user_id, todaysDate: new Date(), text_msg },
+        { amount: parseFloat(amount), category, transaction: "Expense" }
+      );
       WhatsappResponse(
         customerNumber,
         `Your Manual Expense of ₹${amount} added to category: ${category}`,
