@@ -4,10 +4,11 @@ import { spending_categories } from "./custom_variables.js";
 import { WhatsappResponse } from "./whatappapi.js";
 import { ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA } from "./tool_schema.js";
 import { executeToolCall } from "./tools.js";
+import { get_customer_info } from "./mongo_db.js";
+import { AIclient, MODEL, ONE_HOUR } from "./variables.js";
 
 function check_manual_message(text_msg, customerNumber) {
   const re = /spent \d+ on \w+/g;
-  const now = Date.now();
   const myArray = [...text_msg.matchAll(re)];
   if (myArray.length > 0) {
     for (let x in myArray) {
@@ -22,38 +23,36 @@ function check_manual_message(text_msg, customerNumber) {
   }
 }
 
-async function get_full_customer() {
-  let customer = await get_customer_info(req.body.customerNumber);
-  // let user_id = customer["val1"]
-  // let status = customer["val2"]
-  // let last_used = customer["last_used"] || 0;
-  // let count = customer["count"] || 0;
+async function get_full_customer(customerNumber) {
+  let customer = await get_customer_info(customerNumber);
   return customer;
 }
 
-async function check_time_limit(customer_info) {
-  if (now - customer_info.last_used < ONE_HOUR) {
+async function check_time_limit(customer_info, customerNumber) {
+  const now = Date.now();
+  const count = customer_info.count;
+  const last_used = customer_info.last_used;
+  const user_id = customer_info.user_id;
+
+  if (now - last_used < ONE_HOUR) {
     if (count > 4) {
       const remaining = Math.ceil((ONE_HOUR - (now - last_used)) / 60000);
-
       WhatsappResponse(
         customerNumber,
         `You hit the hourly AI limit. Please try again after ${remaining} minutes. u can add manualy useing spent x on y where x is the amount and y is the category`,
       );
       return true;
     } else {
-      count += 1;
-      let a = await User.updateOne(
+      await User.updateOne(
         { user_id: user_id },
-        { count: count, last_used: now },
+        { count: count + 1, last_used: now },
       );
       return false;
     }
   } else {
-    count = 0; // reset after 1 hour
-    let a = await User.updateOne(
+    await User.updateOne(
       { user_id: user_id },
-      { count: count, last_used: now },
+      { count: 0, last_used: now },
     );
     return false;
   }
@@ -68,7 +67,7 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
   if (customer_info.status == "NEW_ID") {
     WhatsappResponse(
       customerNumber,
-      `Your Customer ID is ${user_id}. Your account has been successfully activated. You can now simply send any expense in this chat, and I’ll automatically record it in your account.`,
+      `Your Customer ID is ${customer_info.user_id}. Your account has been successfully activated. You can now simply send any expense in this chat, and I'll automatically record it in your account.`,
     );
   } else {
     const messages = [
@@ -81,20 +80,18 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
       { role: "user", content: text_msg },
     ];
 
-    const response = await client.chat.completions.create({
+    const response = await AIclient.chat.completions.create({
       model: MODEL,
       messages: messages,
-      tools: [ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA], // Your schema from step 1
+      tools: [ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA],
     });
 
     messages.push(response.choices[0].message);
 
     if (response.choices[0].message.tool_calls) {
-      // 3. Execute each tool call (using the helper function from step 2)
       for (const toolCall of response.choices[0].message.tool_calls) {
         const functionResponse = await executeToolCall(meta_data, toolCall);
 
-        // Add tool result to messages
         messages.push({
           role: "tool",
           tool_call_id: toolCall.id,
@@ -103,9 +100,8 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
         });
       }
 
-      // 4. Send results back and get final response
-      const final = await client.chat.completions.create({
-        model: "openai/gpt-oss-120b",
+      const final = await AIclient.chat.completions.create({
+        model: MODEL,
         messages: messages,
       });
       WhatsappResponse(customerNumber, final.choices[0].message.content);

@@ -26,9 +26,9 @@ app.post("/webhook/get_expence", async (req, res) => {
       return;
     }
 
-    const customer_info = await get_full_customer();
+    const customer_info = await get_full_customer(customerNumber);
 
-    const check_limit = await check_time_limit(customer_info);
+    const check_limit = await check_time_limit(customer_info, customerNumber);
 
     if (check_limit == true) {
       return;
