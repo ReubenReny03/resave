@@ -5,6 +5,7 @@ import {
   check_time_limit,
   get_full_customer,
   start_ai_process,
+  send_expense_reminders,
 } from "./flow_funcations.js";
 
 dotenv.config({ path: ".env" });
@@ -46,4 +47,5 @@ app.post("/webhook/get_expence", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`App Started at http://localhost:${PORT}`);
+  setInterval(send_expense_reminders, 10 * 60 * 1000); // run every 10 minutes
 });

@@ -19,6 +19,7 @@ const UserSchema = new mongoose.Schema({
   state: { type: Number, required: true },
   last_used: { type: Number, required: true },
   count: { type: Number, required: true },
+  last_reminded: { type: Number, default: 0 },
 });
 
 export const User = mongoose.model("users", UserSchema);

@@ -118,9 +118,41 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
   }
 }
 
+async function send_expense_reminders() {
+  const now = Date.now();
+  const TEN_HOURS = 10 * 60 * 60 * 1000;
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+  try {
+    const users = await User.find({});
+
+    for (const user of users) {
+      // skip if we already reminded this user in the last 24 hours
+      if (now - (user.last_reminded || 0) < TWENTY_FOUR_HOURS) continue;
+
+      // find their most recent expense
+      const lastExpense = await Expense.findOne({ user_id: user.user_id }).sort({ date: -1 });
+
+      const lastActivityTime = lastExpense ? new Date(lastExpense.date).getTime() : 0;
+      const timeSinceLast = now - lastActivityTime;
+
+      if (timeSinceLast > TEN_HOURS && timeSinceLast < TWENTY_FOUR_HOURS) {
+        await WhatsappResponse(
+          user.phone_number,
+          `Hey! 👀 Looks like you haven't logged any expenses today. Don't let it slip — even a small entry goes a long way. Consistent tracking is what turns your daily spends into real insights. Just send me what you spent and I'll handle the rest! 💸`
+        );
+        await User.updateOne({ user_id: user.user_id }, { last_reminded: now });
+      }
+    }
+  } catch (err) {
+    console.log("Reminder job error:", err);
+  }
+}
+
 export {
   check_manual_message,
   get_full_customer,
   check_time_limit,
   start_ai_process,
+  send_expense_reminders,
 };
