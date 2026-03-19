@@ -1,0 +1,27 @@
+{
+  "name": "resave",
+  "version": "1.0.0",
+  "description": "save your money use ReSave",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node main.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@google/genai": "^1.43.0",
+    "axios": "^1.13.6",
+    "body-parser": "^2.2.2",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "groq-sdk": "^0.37.0",
+    "mongoose": "^9.2.3",
+    "node-telegram-bot-api": "^0.63.0",
+    "nodemon": "^3.1.14",
+    "openai": "^6.25.0",
+    "zod": "^4.3.6",
+    "zod-to-json-schema": "^3.25.1"
+  }
+}
