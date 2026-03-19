@@ -1,5 +1,8 @@
 import mongoose from "mongoose";
+import dotenv from "dotenv";
 import { User, Dbconfig } from "./custom_variables.js";
+
+dotenv.config({ path: ".env" });
 
 mongoose.connect(process.env.MONGO_URI, {}).then((result)=>{
     console.log("Mongo Connected Success")
