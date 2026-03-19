@@ -5,7 +5,6 @@ import { WhatsappResponse } from "./whatappapi.js";
 import { ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA } from "./tool_schema.js";
 import { executeToolCall } from "./tools.js";
 
-
 function check_manual_message(text_msg, customerNumber) {
   const re = /spent \d+ on \w+/g;
   const now = Date.now();
@@ -110,14 +109,17 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
         messages: messages,
       });
       WhatsappResponse(customerNumber, final.choices[0].message.content);
-      return true
+      return true;
     } else {
       WhatsappResponse(customerNumber, response.choices[0].message.content);
-      return true
+      return true;
     }
   }
 }
 
-
-
-export {check_manual_message, get_full_customer,check_time_limit,start_ai_process}
+export {
+  check_manual_message,
+  get_full_customer,
+  check_time_limit,
+  start_ai_process,
+};

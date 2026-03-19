@@ -1,50 +1,51 @@
 export const spending_categories = [
-    "Food & Dining",
-    "Groceries",
-    "Transportation",
-    "Fuel",
-    "Rent",
-    "Utilities",
-    "Internet & Mobile",
-    "Shopping",
-    "Entertainment",
-    "Subscriptions",
-    "Health & Medical",
-    "Insurance",
-    "Education",
-    "Travel",
-    "Personal Care",
-    "Gifts & Donations",
-    "EMI & Loans",
-    "Investments",
-    "Home Maintenance",
-    "Salary",
-    "Miscellaneous"
-]
+  "Food & Dining",
+  "Groceries",
+  "Transportation",
+  "Fuel",
+  "Rent",
+  "Utilities",
+  "Internet & Mobile",
+  "Shopping",
+  "Entertainment",
+  "Subscriptions",
+  "Health & Medical",
+  "Insurance",
+  "Education",
+  "Travel",
+  "Personal Care",
+  "Gifts & Donations",
+  "EMI & Loans",
+  "Investments",
+  "Home Maintenance",
+  "Salary",
+  "Miscellaneous",
+];
 export const ADD_EXPENSE_SCHEMA = {
-  "type": "function",
-  "function": {
-    "name": "add_expense",
-    "description": "to add an expense or income into an account",
-    "parameters": {
-      "type": "object",
-      "properties": {
-            "amount": {
-                "type": "integer",
-                "description": "The amount to be added into the account"
-            },
-            "transaction": {
-                "type": "string",
-                "description": "You can set it to Expense or Income based on the users msg."
-            },
-            "category": {
-                "type": "string",
-                "description": `You can select any one catagory you want it to be i'll suggest ${spending_categories} from these catagories u can take.`
-            }
-      }
-    }
-  }
-}
+  type: "function",
+  function: {
+    name: "add_expense",
+    description: "to add an expense or income into an account",
+    parameters: {
+      type: "object",
+      properties: {
+        amount: {
+          type: "number",
+          description: "The amount to be added into the account",
+        },
+        transaction: {
+          type: "string",
+          description:
+            "You can set it to Expense or Income based on the users msg.",
+        },
+        category: {
+          type: "string",
+          description: `You can select any one catagory you want it to be i'll suggest ${spending_categories} from these catagories u can take.`,
+        },
+      },
+    },
+  },
+};
 export const INSIGHT_SCHEMA = {
   type: "function",
   function: {
@@ -94,18 +95,18 @@ Rules:
           description:
             "MongoDB aggregation pipeline stages used to calculate the requested insight.",
           items: {
-            type: "object"
-          }
+            type: "object",
+          },
         },
 
         message: {
           type: "string",
           description:
-            "A human readable explanation of what insight is being calculated."
-        }
+            "A human readable explanation of what insight is being calculated.",
+        },
       },
 
-      required: ["pipeline"]
-    }
-  }
-}
+      required: ["pipeline"],
+    },
+  },
+};

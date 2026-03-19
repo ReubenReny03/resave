@@ -1,10 +1,15 @@
 import express, { response } from "express";
 import dotenv from "dotenv";
-import { check_manual_message, check_time_limit, get_full_customer, start_ai_process } from "./flow_funcations";
-
+import {
+  check_manual_message,
+  check_time_limit,
+  get_full_customer,
+  start_ai_process,
+} from "./flow_funcations.js";
 
 dotenv.config({ path: ".env" });
 
+const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.use(express.json());
@@ -39,6 +44,6 @@ app.post("/webhook/get_expence", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`App Started at http://localhost:${port}`);
+app.listen(PORT, () => {
+  console.log(`App Started at http://localhost:${PORT}`);
 });
