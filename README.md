@@ -2,6 +2,7 @@
 
 Track your expenses by just sending a WhatsApp message. ReSave uses AI to understand natural language, categorize your spending automatically, and give you financial insights — all inside WhatsApp.
 
+[Try the whatsapp bot](https://wa.me/message/YDMIV7LTMFF5K1)
 ---
 
 ## How It Works
