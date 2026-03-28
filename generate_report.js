@@ -1,35 +1,45 @@
-import mongoose from "mongoose";
 import ExcelJS from "exceljs";
 import axios from "axios";
-import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Expense, User } from "./custom_variables.js";
 
-dotenv.config({ path: ".env" });
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const TARGET_USER_ID = "00000001";
 const SERVER_URL = process.env.SERVER_URL || "http://43.205.178.165:3000";
+const REPORTS_DIR = path.join(__dirname, "reports");
 
 // brand colors
-const PRIMARY = "1B5E20";    // dark green
-const ACCENT = "4CAF50";     // green
-const LIGHT_BG = "F1F8E9";   // light green tint
+const PRIMARY = "1B5E20";
+const ACCENT = "4CAF50";
+const LIGHT_BG = "F1F8E9";
 const WHITE = "FFFFFF";
 const DARK_TEXT = "212121";
 const GRAY_TEXT = "757575";
 const RED = "D32F2F";
 const GREEN = "2E7D32";
 
+function ensureReportsDir() {
+  if (!fs.existsSync(REPORTS_DIR)) fs.mkdirSync(REPORTS_DIR);
+}
+
+function scheduleDelete(filePath, delayMs = 5 * 60 * 1000) {
+  setTimeout(() => {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted report: ${filePath}`);
+      }
+    } catch (err) {
+      console.log("Failed to delete report:", err.message);
+    }
+  }, delayMs);
+}
+
 async function generateMonthlyReport(userId) {
-  await mongoose.connect(process.env.MONGO_URI);
-
   const user = await User.findOne({ user_id: userId });
-  if (!user) throw new Error(`User ${userId} not found`);
+  if (!user) return null;
 
-  // get current month range
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -40,13 +50,8 @@ async function generateMonthlyReport(userId) {
     date: { $gte: startOfMonth, $lte: endOfMonth },
   }).sort({ date: 1 });
 
-  if (expenses.length === 0) {
-    console.log(`No transactions found for user ${userId} in ${monthName}`);
-    await mongoose.disconnect();
-    return null;
-  }
+  if (expenses.length === 0) return null;
 
-  // ── build workbook ──
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "ReSave";
   workbook.created = new Date();
@@ -59,17 +64,15 @@ async function generateMonthlyReport(userId) {
     views: [{ showGridLines: false }],
   });
 
-  // column widths
   ws.columns = [
-    { width: 6 },   // A — #
-    { width: 14 },  // B — Date
-    { width: 14 },  // C — Type
-    { width: 20 },  // D — Category
-    { width: 14 },  // E — Amount
-    { width: 36 },  // F — Description
+    { width: 6 },
+    { width: 14 },
+    { width: 14 },
+    { width: 20 },
+    { width: 14 },
+    { width: 36 },
   ];
 
-  // ── Header banner ──
   const titleRow = ws.addRow(["  ReSave — Monthly Expense Report"]);
   ws.mergeCells("A1:F1");
   titleRow.height = 42;
@@ -84,9 +87,8 @@ async function generateMonthlyReport(userId) {
   subRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: ACCENT } };
   subRow.getCell(1).alignment = { vertical: "middle" };
 
-  ws.addRow([]); // spacer
+  ws.addRow([]);
 
-  // ── Table header ──
   const headers = ["#", "Date", "Type", "Category", "Amount (₹)", "Description"];
   const headerRow = ws.addRow(headers);
   headerRow.height = 26;
@@ -94,12 +96,9 @@ async function generateMonthlyReport(userId) {
     cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: WHITE } };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
     cell.alignment = { vertical: "middle", horizontal: "center" };
-    cell.border = {
-      bottom: { style: "thin", color: { argb: PRIMARY } },
-    };
+    cell.border = { bottom: { style: "thin", color: { argb: PRIMARY } } };
   });
 
-  // ── Data rows ──
   let totalExpense = 0;
   let totalIncome = 0;
 
@@ -122,15 +121,10 @@ async function generateMonthlyReport(userId) {
       cell.font = { name: "Calibri", size: 10.5, color: { argb: DARK_TEXT } };
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
       cell.alignment = { vertical: "middle", horizontal: colNum === 6 ? "left" : "center" };
-      cell.border = {
-        bottom: { style: "hair", color: { argb: "E0E0E0" } },
-      };
-
-      // color the type column
+      cell.border = { bottom: { style: "hair", color: { argb: "E0E0E0" } } };
       if (colNum === 3) {
         cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
       }
-      // amount formatting
       if (colNum === 5) {
         cell.numFmt = "#,##0.00";
         cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
@@ -138,8 +132,7 @@ async function generateMonthlyReport(userId) {
     });
   });
 
-  // ── Totals row ──
-  ws.addRow([]); // spacer
+  ws.addRow([]);
   const net = totalIncome - totalExpense;
 
   const summaryData = [
@@ -191,7 +184,6 @@ async function generateMonthlyReport(userId) {
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
 
-  // aggregate by category (expenses only)
   const categoryMap = {};
   expenses.filter((e) => e.transaction === "Expense").forEach((e) => {
     if (!categoryMap[e.category]) categoryMap[e.category] = { total: 0, count: 0 };
@@ -214,33 +206,27 @@ async function generateMonthlyReport(userId) {
     });
   });
 
-  // ── footer ──
   catSheet.addRow([]);
   const footerRow = catSheet.addRow(["", "Generated by ReSave"]);
   catSheet.mergeCells(`B${footerRow.number}:E${footerRow.number}`);
   footerRow.getCell(2).font = { name: "Calibri", size: 9, italic: true, color: { argb: GRAY_TEXT } };
   footerRow.getCell(2).alignment = { horizontal: "center" };
 
-  // ── save file ──
-  const fileName = `ReSave_${userId}_${monthName.replace(" ", "_")}.xlsx`;
-  const filePath = path.join(__dirname, "reports", fileName);
+  // save file
+  const timestamp = Date.now();
+  const fileName = `ReSave_${userId}_${monthName.replace(" ", "_")}_${timestamp}.xlsx`;
+  const filePath = path.join(REPORTS_DIR, fileName);
 
-  // ensure reports dir exists
-  const fs = await import("fs");
-  if (!fs.existsSync(path.join(__dirname, "reports"))) {
-    fs.mkdirSync(path.join(__dirname, "reports"));
-  }
-
+  ensureReportsDir();
   await workbook.xlsx.writeFile(filePath);
   console.log(`Report saved: ${filePath}`);
 
-  return { filePath, fileName, phoneNumber: user.phone_number, totalExpense, totalIncome };
+  return { filePath, fileName, monthName };
 }
 
-async function sendReportViaWhatsApp(phoneNumber, fileName, monthName, totalExpense, totalIncome, net) {
+async function sendReportWhatsApp(phoneNumber, fileName, monthName) {
   const fileUrl = `${SERVER_URL}/reports/${encodeURIComponent(fileName)}`;
-
-  const msg = `📊 *Your ${monthName} Report is Ready!* — 💰 Income: ₹${totalIncome.toLocaleString("en-IN")} | 💸 Expense: ₹${totalExpense.toLocaleString("en-IN")} | ${net >= 0 ? "✅" : "🔴"} Net Savings: ₹${net.toLocaleString("en-IN")} — 📥 Download here: ${fileUrl}`;
+  console.log(`Sending report to ${phoneNumber}: ${fileUrl}`);
 
   const { data } = await axios.post(
     "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
@@ -251,16 +237,23 @@ async function sendReportViaWhatsApp(phoneNumber, fileName, monthName, totalExpe
         messaging_product: "whatsapp",
         type: "template",
         template: {
-          name: "response_from_server",
+          name: "monthly_report",
           language: { code: "en", policy: "deterministic" },
           namespace: "329a6d81_daa5_4230_b0f3_c953f5f75b28",
           to_and_components: [
             {
               to: [phoneNumber],
               components: {
+                header: {
+                  type: "document",
+                  document: {
+                    link: fileUrl,
+                    filename: fileName,
+                  },
+                },
                 body_value_1: {
                   type: "text",
-                  value: msg,
+                  value: monthName,
                   parameter_name: "value_1",
                 },
               },
@@ -281,26 +274,16 @@ async function sendReportViaWhatsApp(phoneNumber, fileName, monthName, totalExpe
   return data;
 }
 
-async function main() {
-  await mongoose.connect(process.env.MONGO_URI);
-
-  const result = await generateMonthlyReport(TARGET_USER_ID);
+export async function handleReportCommand(customerNumber, userId) {
+  const result = await generateMonthlyReport(userId);
   if (!result) {
-    await mongoose.disconnect();
+    const { WhatsappResponse } = await import("./whatappapi.js");
+    await WhatsappResponse(customerNumber, "No transactions found for this month yet. Start logging your expenses and try again!");
     return;
   }
 
-  const now = new Date();
-  const monthName = now.toLocaleString("en-IN", { month: "long", year: "numeric" });
+  await sendReportWhatsApp(customerNumber, result.fileName, result.monthName);
 
-  const net = result.totalIncome - result.totalExpense;
-  await sendReportViaWhatsApp(result.phoneNumber, result.fileName, monthName, result.totalExpense, result.totalIncome, net);
-
-  await mongoose.disconnect();
-  console.log("Done!");
+  // auto-delete file after 5 minutes
+  scheduleDelete(result.filePath);
 }
-
-main().catch((err) => {
-  console.error("Failed:", err);
-  process.exit(1);
-});

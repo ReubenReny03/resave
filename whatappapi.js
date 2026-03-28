@@ -22,10 +22,10 @@ export async function WhatsappResponse(phone_number,msg){
                         phone_number
                     ],
                     "components": {
-                        "body_value_1": {
+                        "body_var_1": {
                             "type": "text",
                             "value": msg,
-                            "parameter_name": "value_1"
+                            "parameter_name": "var_1"
                         }
                     }
                 }
