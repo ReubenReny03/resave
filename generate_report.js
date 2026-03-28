@@ -318,16 +318,40 @@ async function sendReportWhatsApp(phoneNumber, fileName, monthName) {
   return data;
 }
 
-export async function handleReportCommand(customerNumber, userId) {
-  const result = await generateMonthlyReport(userId);
-  if (!result) {
-    const { WhatsappResponse } = await import("./whatappapi.js");
-    await WhatsappResponse(customerNumber, "No transactions found for this month yet. Start logging your expenses and try again!");
-    return;
+export async function sendMonthlyReports() {
+  console.log("Starting monthly report generation...");
+  const { WhatsappResponse } = await import("./whatappapi.js");
+
+  const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000);
+  const activeUsers = await User.find({ last_used: { $gte: sixDaysAgo } });
+
+  console.log(`Found ${activeUsers.length} active users in last 6 days`);
+
+  for (const user of activeUsers) {
+    try {
+      const result = await generateMonthlyReport(user.user_id);
+      if (!result) {
+        console.log(`No data for user ${user.user_id}, skipping`);
+        continue;
+      }
+
+      await sendReportWhatsApp(user.phone_number, result.fileName, result.monthName);
+
+      // follow-up personal message after a short delay
+      await new Promise((r) => setTimeout(r, 3000));
+      await WhatsappResponse(
+        user.phone_number,
+        `Hey its me Reuben, hope you had a good day! Look into the report I just sent — I have added some blank space so if you forgot to add something you can fill it in. You can add your income too to see your net savings. So take some time off and look into your spendings, maybe open your UPI and fill in the missing things. This excel is just with you, no one else can see it.`
+      );
+
+      // auto-delete file after 5 minutes
+      scheduleDelete(result.filePath);
+
+      console.log(`Report sent to user ${user.user_id}`);
+    } catch (err) {
+      console.log(`Failed for user ${user.user_id}:`, err.message);
+    }
   }
 
-  await sendReportWhatsApp(customerNumber, result.fileName, result.monthName);
-
-  // auto-delete file after 5 minutes
-  scheduleDelete(result.filePath);
+  console.log("Monthly reports done!");
 }

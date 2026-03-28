@@ -6,16 +6,7 @@ import { ADD_EXPENSE_SCHEMA, INSIGHT_SCHEMA } from "./tool_schema.js";
 import { executeToolCall, add_expense } from "./tools.js";
 import { get_customer_info } from "./mongo_db.js";
 import { AIclient, MODEL, ONE_HOUR } from "./variables.js";
-import { handleReportCommand } from "./generate_report.js";
-
 async function check_manual_message(text_msg, customerNumber) {
-  // handle /report command
-  if (text_msg.trim().toLowerCase() === "/report") {
-    const customer = await get_customer_info(customerNumber);
-    await handleReportCommand(customerNumber, customer.user_id);
-    return true;
-  }
-
   const re = /spent (\d+(?:\.\d+)?) on (\w+)/gi;
   const myArray = [...text_msg.matchAll(re)];
   if (myArray.length > 0) {

@@ -9,6 +9,7 @@ import {
   start_ai_process,
   send_expense_reminders,
 } from "./flow_funcations.js";
+import { sendMonthlyReports } from "./generate_report.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,7 +51,32 @@ app.post("/webhook/get_expence", async (req, res) => {
   }
 });
 
+// check every minute if it's time to send monthly reports
+// triggers on last day of month at 8:30 PM IST (3:00 PM UTC)
+let monthlyReportSent = false;
+
+function checkMonthlyReportSchedule() {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcMinute = now.getUTCMinutes();
+  const today = now.getUTCDate();
+  const lastDayOfMonth = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate();
+
+  // 8:30 PM IST = 3:00 PM UTC (15:00)
+  if (today === lastDayOfMonth && utcHour === 15 && utcMinute === 0) {
+    if (!monthlyReportSent) {
+      monthlyReportSent = true;
+      console.log("Triggering monthly reports...");
+      sendMonthlyReports().catch((err) => console.log("Monthly report error:", err));
+    }
+  } else {
+    // reset flag so it can fire next month
+    monthlyReportSent = false;
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`App Started at http://localhost:${PORT}`);
   setInterval(send_expense_reminders, 10 * 60 * 1000); // run every 10 minutes
+  setInterval(checkMonthlyReportSchedule, 60 * 1000); // check every minute
 });
