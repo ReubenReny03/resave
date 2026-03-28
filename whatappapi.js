@@ -10,7 +10,7 @@ export async function WhatsappResponse(phone_number,msg){
         "messaging_product": "whatsapp",
         "type": "template",
         "template": {
-            "name": "response_from_server",
+            "name": "response_from_server_2",
             "language": {
                 "code": "en",
                 "policy": "deterministic"
