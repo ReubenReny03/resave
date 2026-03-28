@@ -36,6 +36,20 @@ function scheduleDelete(filePath, delayMs = 5 * 60 * 1000) {
   }, delayMs);
 }
 
+function styleDataCell(cell, colNum, bgColor, isExpense) {
+  cell.font = { name: "Calibri", size: 10.5, color: { argb: DARK_TEXT } };
+  cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+  cell.alignment = { vertical: "middle", horizontal: colNum === 6 ? "left" : "center" };
+  cell.border = { bottom: { style: "hair", color: { argb: "E0E0E0" } } };
+  if (colNum === 3) {
+    cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
+  }
+  if (colNum === 5) {
+    cell.numFmt = "#,##0.00";
+    cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
+  }
+}
+
 async function generateMonthlyReport(userId) {
   const user = await User.findOne({ user_id: userId });
   if (!user) return null;
@@ -65,14 +79,15 @@ async function generateMonthlyReport(userId) {
   });
 
   ws.columns = [
-    { width: 6 },
-    { width: 14 },
-    { width: 14 },
-    { width: 20 },
-    { width: 14 },
-    { width: 36 },
+    { width: 6 },   // A — #
+    { width: 14 },  // B — Date
+    { width: 14 },  // C — Type
+    { width: 20 },  // D — Category
+    { width: 14 },  // E — Amount
+    { width: 36 },  // F — Description
   ];
 
+  // Row 1 — title banner
   const titleRow = ws.addRow(["  ReSave — Monthly Expense Report"]);
   ws.mergeCells("A1:F1");
   titleRow.height = 42;
@@ -80,6 +95,7 @@ async function generateMonthlyReport(userId) {
   titleRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: PRIMARY } };
   titleRow.getCell(1).alignment = { vertical: "middle" };
 
+  // Row 2 — sub header
   const subRow = ws.addRow([`  ${monthName}  |  User: ${userId}  |  Phone: ${user.phone_number}`]);
   ws.mergeCells("A2:F2");
   subRow.height = 28;
@@ -87,8 +103,10 @@ async function generateMonthlyReport(userId) {
   subRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: ACCENT } };
   subRow.getCell(1).alignment = { vertical: "middle" };
 
+  // Row 3 — spacer
   ws.addRow([]);
 
+  // Row 4 — table header
   const headers = ["#", "Date", "Type", "Category", "Amount (₹)", "Description"];
   const headerRow = ws.addRow(headers);
   headerRow.height = 26;
@@ -99,14 +117,11 @@ async function generateMonthlyReport(userId) {
     cell.border = { bottom: { style: "thin", color: { argb: PRIMARY } } };
   });
 
-  let totalExpense = 0;
-  let totalIncome = 0;
+  // Data rows start at row 5
+  const dataStartRow = 5;
 
   expenses.forEach((exp, i) => {
     const isExpense = exp.transaction === "Expense";
-    if (isExpense) totalExpense += exp.amount;
-    else totalIncome += exp.amount;
-
     const row = ws.addRow([
       i + 1,
       new Date(exp.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
@@ -117,39 +132,66 @@ async function generateMonthlyReport(userId) {
     ]);
 
     const bgColor = i % 2 === 0 ? WHITE : LIGHT_BG;
-    row.eachCell((cell, colNum) => {
-      cell.font = { name: "Calibri", size: 10.5, color: { argb: DARK_TEXT } };
+    row.eachCell((cell, colNum) => styleDataCell(cell, colNum, bgColor, isExpense));
+  });
+
+  const dataEndRow = dataStartRow + expenses.length - 1;
+
+  // Leave 10 blank rows for user to add more data manually
+  const extraRows = 10;
+  for (let i = 0; i < extraRows; i++) {
+    const row = ws.addRow(["", "", "", "", "", ""]);
+    const bgColor = (expenses.length + i) % 2 === 0 ? WHITE : LIGHT_BG;
+    row.eachCell((cell) => {
       cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-      cell.alignment = { vertical: "middle", horizontal: colNum === 6 ? "left" : "center" };
       cell.border = { bottom: { style: "hair", color: { argb: "E0E0E0" } } };
-      if (colNum === 3) {
-        cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
-      }
-      if (colNum === 5) {
-        cell.numFmt = "#,##0.00";
-        cell.font = { name: "Calibri", size: 10.5, bold: true, color: { argb: isExpense ? RED : GREEN } };
-      }
+      cell.font = { name: "Calibri", size: 10.5, color: { argb: DARK_TEXT } };
     });
-  });
-
-  ws.addRow([]);
-  const net = totalIncome - totalExpense;
-
-  const summaryData = [
-    ["Total Income", totalIncome, GREEN],
-    ["Total Expense", totalExpense, RED],
-    ["Net Savings", net, net >= 0 ? GREEN : RED],
-  ];
-
-  summaryData.forEach(([label, value, color]) => {
-    const row = ws.addRow(["", "", "", label, value, ""]);
-    row.getCell(4).font = { name: "Calibri", size: 11, bold: true, color: { argb: DARK_TEXT } };
-    row.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
     row.getCell(5).numFmt = "#,##0.00";
-    row.getCell(5).font = { name: "Calibri", size: 12, bold: true, color: { argb: color } };
-    row.getCell(5).alignment = { horizontal: "center", vertical: "middle" };
-    row.getCell(5).border = { bottom: { style: "thin", color: { argb: "BDBDBD" } } };
-  });
+  }
+
+  const lastPossibleRow = dataEndRow + extraRows;
+
+  // Spacer
+  ws.addRow([]);
+  const summaryStartRow = lastPossibleRow + 2;
+
+  // FORMULAS — these use SUMIF so they auto-update if user adds rows
+  const amountRange = `E${dataStartRow}:E${lastPossibleRow}`;
+  const typeRange = `C${dataStartRow}:C${lastPossibleRow}`;
+
+  // Total Income row
+  const incomeRow = ws.getRow(summaryStartRow);
+  incomeRow.getCell(4).value = "Total Income";
+  incomeRow.getCell(4).font = { name: "Calibri", size: 11, bold: true, color: { argb: DARK_TEXT } };
+  incomeRow.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+  incomeRow.getCell(5).value = { formula: `SUMIF(${typeRange},"Income",${amountRange})` };
+  incomeRow.getCell(5).numFmt = "#,##0.00";
+  incomeRow.getCell(5).font = { name: "Calibri", size: 12, bold: true, color: { argb: GREEN } };
+  incomeRow.getCell(5).alignment = { horizontal: "center", vertical: "middle" };
+  incomeRow.getCell(5).border = { bottom: { style: "thin", color: { argb: "BDBDBD" } } };
+
+  // Total Expense row
+  const expenseRow = ws.getRow(summaryStartRow + 1);
+  expenseRow.getCell(4).value = "Total Expense";
+  expenseRow.getCell(4).font = { name: "Calibri", size: 11, bold: true, color: { argb: DARK_TEXT } };
+  expenseRow.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+  expenseRow.getCell(5).value = { formula: `SUMIF(${typeRange},"Expense",${amountRange})` };
+  expenseRow.getCell(5).numFmt = "#,##0.00";
+  expenseRow.getCell(5).font = { name: "Calibri", size: 12, bold: true, color: { argb: RED } };
+  expenseRow.getCell(5).alignment = { horizontal: "center", vertical: "middle" };
+  expenseRow.getCell(5).border = { bottom: { style: "thin", color: { argb: "BDBDBD" } } };
+
+  // Net Savings row (Income - Expense)
+  const netRow = ws.getRow(summaryStartRow + 2);
+  netRow.getCell(4).value = "Net Savings";
+  netRow.getCell(4).font = { name: "Calibri", size: 11, bold: true, color: { argb: DARK_TEXT } };
+  netRow.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+  netRow.getCell(5).value = { formula: `E${summaryStartRow}-E${summaryStartRow + 1}` };
+  netRow.getCell(5).numFmt = "#,##0.00";
+  netRow.getCell(5).font = { name: "Calibri", size: 12, bold: true, color: { argb: GREEN } };
+  netRow.getCell(5).alignment = { horizontal: "center", vertical: "middle" };
+  netRow.getCell(5).border = { bottom: { style: "double", color: { argb: PRIMARY } } };
 
   // ═══════════════════════════════════════
   //  SHEET 2 — Category Summary
@@ -184,6 +226,7 @@ async function generateMonthlyReport(userId) {
     cell.alignment = { vertical: "middle", horizontal: "center" };
   });
 
+  // aggregate by category (expenses only)
   const categoryMap = {};
   expenses.filter((e) => e.transaction === "Expense").forEach((e) => {
     if (!categoryMap[e.category]) categoryMap[e.category] = { total: 0, count: 0 };
@@ -192,10 +235,14 @@ async function generateMonthlyReport(userId) {
   });
 
   const sorted = Object.entries(categoryMap).sort((a, b) => b[1].total - a[1].total);
+  const catDataStartRow = 4; // row after header
 
   sorted.forEach(([cat, data], i) => {
-    const pct = totalExpense > 0 ? ((data.total / totalExpense) * 100).toFixed(1) : "0.0";
-    const row = catSheet.addRow([i + 1, cat, data.count, data.total, `${pct}%`]);
+    const rowNum = catDataStartRow + i;
+    const row = catSheet.addRow([i + 1, cat, data.count, data.total, ""]);
+    // % formula: this category's total / sum of all category totals
+    row.getCell(5).value = { formula: `IF(D${rowNum}=0,"0.0%",TEXT(D${rowNum}/SUM(D${catDataStartRow}:D${catDataStartRow + sorted.length - 1})*100,"0.0")&"%")` };
+
     const bgColor = i % 2 === 0 ? WHITE : LIGHT_BG;
     row.eachCell((cell, colNum) => {
       cell.font = { name: "Calibri", size: 10.5, color: { argb: DARK_TEXT } };
@@ -244,17 +291,14 @@ async function sendReportWhatsApp(phoneNumber, fileName, monthName) {
             {
               to: [phoneNumber],
               components: {
-                header: {
+                header_1: {
+                  filename: fileName,
                   type: "document",
-                  document: {
-                    link: fileUrl,
-                    filename: fileName,
-                  },
+                  value: fileUrl,
                 },
-                body_value_1: {
+                body_1: {
                   type: "text",
                   value: monthName,
-                  parameter_name: "value_1",
                 },
               },
             },
