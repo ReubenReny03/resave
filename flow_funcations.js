@@ -120,7 +120,7 @@ async function start_ai_process(customer_info, text_msg, customerNumber) {
 
 async function send_expense_reminders() {
   const now = Date.now();
-  const TEN_HOURS = 10 * 60 * 60 * 1000;
+  const TWENTY_HOURS = 20 * 60 * 60 * 1000;
   const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
   try {
@@ -136,7 +136,7 @@ async function send_expense_reminders() {
       const lastActivityTime = lastExpense ? new Date(lastExpense.date).getTime() : 0;
       const timeSinceLast = now - lastActivityTime;
 
-      if (timeSinceLast > TEN_HOURS && timeSinceLast < TWENTY_FOUR_HOURS) {
+      if (timeSinceLast > TWENTY_HOURS && timeSinceLast < TWENTY_FOUR_HOURS) {
         await WhatsappResponse(
           user.phone_number,
           `Hey! 👀 Looks like you haven't logged any expenses today. Don't let it slip — even a small entry goes a long way. Consistent tracking is what turns your daily spends into real insights. Just send me what you spent and I'll handle the rest! 💸`
