@@ -1,5 +1,7 @@
 import express, { response } from "express";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import {
   check_manual_message,
   check_time_limit,
@@ -8,12 +10,15 @@ import {
   send_expense_reminders,
 } from "./flow_funcations.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 dotenv.config({ path: ".env" });
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 
 app.use(express.json());
+app.use("/reports", express.static(path.join(__dirname, "reports")));
 
 app.post("/webhook/get_expence", async (req, res) => {
   res.sendStatus(200);

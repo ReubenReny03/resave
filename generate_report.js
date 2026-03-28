@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import ExcelJS from "exceljs";
+import axios from "axios";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -10,6 +11,7 @@ dotenv.config({ path: ".env" });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const TARGET_USER_ID = "00000001";
+const SERVER_URL = process.env.SERVER_URL || "http://43.205.178.165:3000";
 
 // brand colors
 const PRIMARY = "1B5E20";    // dark green
@@ -232,11 +234,73 @@ async function generateMonthlyReport(userId) {
   await workbook.xlsx.writeFile(filePath);
   console.log(`Report saved: ${filePath}`);
 
-  await mongoose.disconnect();
-  return filePath;
+  return { filePath, fileName, phoneNumber: user.phone_number, totalExpense, totalIncome };
 }
 
-generateMonthlyReport(TARGET_USER_ID).catch((err) => {
-  console.error("Failed to generate report:", err);
+async function sendReportViaWhatsApp(phoneNumber, fileName, monthName, totalExpense, totalIncome, net) {
+  const fileUrl = `${SERVER_URL}/reports/${encodeURIComponent(fileName)}`;
+
+  const msg = `📊 *Your ${monthName} Report is Ready!*\n\nHere's your monthly summary:\n\n💰 Income: ₹${totalIncome.toLocaleString("en-IN")}\n💸 Expense: ₹${totalExpense.toLocaleString("en-IN")}\n${net >= 0 ? "✅" : "🔴"} Net Savings: ₹${net.toLocaleString("en-IN")}\n\n📥 Download your detailed Excel report here:\n${fileUrl}\n\nKeep tracking, keep saving! 🚀`;
+
+  const { data } = await axios.post(
+    "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+    {
+      integrated_number: process.env.WHATSAPP_INTEGRATED_NUMBER,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: "response_from_server",
+          language: { code: "en", policy: "deterministic" },
+          namespace: "329a6d81_daa5_4230_b0f3_c953f5f75b28",
+          to_and_components: [
+            {
+              to: [phoneNumber],
+              components: {
+                body_value_1: {
+                  type: "text",
+                  value: msg,
+                  parameter_name: "value_1",
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+        authkey: process.env.MSG91_TOKEN,
+      },
+    }
+  );
+
+  console.log("MSG91 response:", data);
+  return data;
+}
+
+async function main() {
+  await mongoose.connect(process.env.MONGO_URI);
+
+  const result = await generateMonthlyReport(TARGET_USER_ID);
+  if (!result) {
+    await mongoose.disconnect();
+    return;
+  }
+
+  const now = new Date();
+  const monthName = now.toLocaleString("en-IN", { month: "long", year: "numeric" });
+
+  const net = result.totalIncome - result.totalExpense;
+  await sendReportViaWhatsApp(result.phoneNumber, result.fileName, monthName, result.totalExpense, result.totalIncome, net);
+
+  await mongoose.disconnect();
+  console.log("Done!");
+}
+
+main().catch((err) => {
+  console.error("Failed:", err);
   process.exit(1);
 });
