@@ -240,7 +240,7 @@ async function generateMonthlyReport(userId) {
 async function sendReportViaWhatsApp(phoneNumber, fileName, monthName, totalExpense, totalIncome, net) {
   const fileUrl = `${SERVER_URL}/reports/${encodeURIComponent(fileName)}`;
 
-  const msg = `📊 *Your ${monthName} Report is Ready!*\n\nHere's your monthly summary:\n\n💰 Income: ₹${totalIncome.toLocaleString("en-IN")}\n💸 Expense: ₹${totalExpense.toLocaleString("en-IN")}\n${net >= 0 ? "✅" : "🔴"} Net Savings: ₹${net.toLocaleString("en-IN")}\n\n📥 Download your detailed Excel report here:\n${fileUrl}\n\nKeep tracking, keep saving! 🚀`;
+  const msg = `📊 *Your ${monthName} Report is Ready!* — 💰 Income: ₹${totalIncome.toLocaleString("en-IN")} | 💸 Expense: ₹${totalExpense.toLocaleString("en-IN")} | ${net >= 0 ? "✅" : "🔴"} Net Savings: ₹${net.toLocaleString("en-IN")} — 📥 Download here: ${fileUrl}`;
 
   const { data } = await axios.post(
     "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
