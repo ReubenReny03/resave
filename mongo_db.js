@@ -28,8 +28,8 @@ export async function get_customer_info(customerNumber){
         const val = await Dbconfig.updateOne(myquery,updateDocument)
         console.log(val)
         console.log("------------------")
-        const new_user = new User({user_id:new_id,phone_number:customerNumber,count:0,last_user:0,state:1})
-        new_user.save()
+        const new_user = new User({user_id:new_id,phone_number:customerNumber,count:0,last_used:0,state:1})
+        await new_user.save()
         return {user_id:new_id, status:"NEW_ID",count:0,last_used:0}
     }
     else{
